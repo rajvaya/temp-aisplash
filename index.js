@@ -1,4 +1,4 @@
-console.log("AISplash Dev Mode Activated 👨‍💻 ");
+console.log("AISplash Dev Mode Activated in Prod 👨‍💻");
 let grid = document.querySelector("#isotope-grid");
 let template;
 let tags;
@@ -410,14 +410,6 @@ function initModal() {
     });
   }
 
-  document.addEventListener("click", function (event) {
-    if (event.target.closest('[ais-element="share-button"]')) {
-      // Your onclick logic here
-      console.log("Share button clicked");
-      // Example function call
-      // shareButtonClickHandler();
-    }
-  });
   document.addEventListener("click", function (e) {
     var item = e.target.closest('[ais-element="list-item"]');
 
@@ -641,6 +633,8 @@ function updateMainImageDataIntoDom(data) {
   getImagesMultiSearch(tags, nextPage);
 }
 function initialize() {
+  console.log("init");
+  console.log("init");
   template = document.querySelector('[ais-element="list-item"]');
   loader = document.querySelector('[ais-element="loader"]');
   document.querySelector('[ais-element="list-item"]').remove();
@@ -648,7 +642,19 @@ function initialize() {
   renderIsotopeLayoutJS();
   initInfiniteScroll();
   initModal();
+  // ... rest of your initialization code
 }
+
+// document.addEventListener("DOMContentLoaded", () => {
+//   console.log("init");
+//   template = document.querySelector('[ais-element="list-item"]');
+//   loader = document.querySelector('[ais-element="loader"]');
+//   document.querySelector('[ais-element="list-item"]').remove();
+//   getDataByRoute();
+//   renderIsotopeLayoutJS();
+//   initInfiniteScroll();
+//   initModal();
+// });
 
 function getCategoryfromPageHeading() {
   categoryHeading = document.querySelector('[ais-element="category-heading"]');
