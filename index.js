@@ -410,6 +410,14 @@ function initModal() {
     });
   }
 
+  document.addEventListener("click", function (event) {
+    if (event.target.closest('[ais-element="share-button"]')) {
+      // Your onclick logic here
+      console.log("Share button clicked");
+      // Example function call
+      // shareButtonClickHandler();
+    }
+  });
   document.addEventListener("click", function (e) {
     var item = e.target.closest('[ais-element="list-item"]');
 
@@ -632,8 +640,7 @@ function updateMainImageDataIntoDom(data) {
   tags = data.tags;
   getImagesMultiSearch(tags, nextPage);
 }
-
-document.addEventListener("DOMContentLoaded", () => {
+function initialize() {
   template = document.querySelector('[ais-element="list-item"]');
   loader = document.querySelector('[ais-element="loader"]');
   document.querySelector('[ais-element="list-item"]').remove();
@@ -641,7 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderIsotopeLayoutJS();
   initInfiniteScroll();
   initModal();
-});
+}
 
 function getCategoryfromPageHeading() {
   categoryHeading = document.querySelector('[ais-element="category-heading"]');
@@ -675,4 +682,10 @@ function getDataByRoute() {
     default:
       break;
   }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initialize);
+} else {
+  initialize();
 }
