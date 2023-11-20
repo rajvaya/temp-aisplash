@@ -1,4 +1,4 @@
-console.log("AISplash Dev Mode Activated 👨‍💻 ");
+console.log("AISplash Prod Mode Activated 👨‍💻 ");
 let grid = document.querySelector("#isotope-grid");
 let template;
 let tags;
@@ -48,7 +48,8 @@ function getSearchParameters(searchQuery = "*", path, page) {
       sort_by: "randomFieldScore:asc",
       page: page,
       per_page: itemsPerPage,
-      include_fields: "name,author,image,id,featured,randomFieldScore"
+      include_fields:
+        "name,author,image,id,featured,randomFieldScore,authorImage"
     };
   } else {
     return {
@@ -57,7 +58,8 @@ function getSearchParameters(searchQuery = "*", path, page) {
       sort_by: "randomFieldScore:asc",
       page: page,
       per_page: itemsPerPage,
-      include_fields: "name,author,image,id"
+      include_fields:
+        "name,author,image,id,featured,randomFieldScore,authorImage"
     };
   }
 
@@ -177,6 +179,7 @@ async function getImages(searchQuery, page = 1, path) {
       .collections("images")
       .documents()
       .search(searchParameters);
+    console.log(searchResults.hits);
     processBatch(searchResults.hits.map((hit) => hit.document));
     hasMorePages = page * itemsPerPage < searchResults.found;
     if (hasMorePages) {
@@ -207,7 +210,7 @@ async function getImagesMultiSearch(tags, page) {
     filter_by: tagFilters,
     page: page,
     per_page: itemsPerPage,
-    include_fields: "name,author,image,id"
+    include_fields: "name,author,image,id,authorImage,"
   };
 
   try {
@@ -215,6 +218,7 @@ async function getImagesMultiSearch(tags, page) {
       .collections("images")
       .documents()
       .search(searchParameters);
+    console.log(result.hits);
     processBatch(result.hits.map((hit) => hit.document));
     hasMorePages = page * itemsPerPage < result.found;
     if (hasMorePages) {
@@ -254,6 +258,11 @@ function getMainThumbnail(url) {
   return `${cleanUrl(url)}?auto=compress`;
 }
 
+function getAuthorImageThumbnail(url) {
+  console.log(url);
+  return `${cleanUrl(url)}?w=96`;
+}
+
 function cleanUrl(url) {
   const parsedUrl = new URL(url);
   return `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
@@ -274,13 +283,19 @@ function processBatch(items) {
       const authorName = clone.querySelector(
         '[ais-element="listitem-author-name"]'
       );
+      const authorImage = clone.querySelector(
+        '[ais-element="listitem-author-image"]'
+      );
       const downloadButton = clone.querySelector(
         '[ais-element="image-download-button"]'
       );
 
       if (authorName) {
-        // console.log(authorName);
         authorName.textContent = item.author;
+      }
+      if (authorImage && item.authorImage) {
+        console.log(item, authorImage);
+        authorImage.src = getAuthorImageThumbnail(item.authorImage);
       }
       if (downloadButton) {
         downloadButton.setAttribute("ais-download-url", cleanUrl(item.image));
@@ -409,17 +424,6 @@ function initModal() {
       lightboxClose.focus();
     });
   }
-
-  document.addEventListener("click", function (event) {
-    if (event.target.closest('[ais-element="share-button"]')) {
-      const pageUrl = window.location.href;
-      const tweetContent = encodeURIComponent(
-        "Check out this image from aisplash, by @mushoai " + pageUrl
-      );
-      const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetContent}`;
-      window.open(twitterIntentUrl, "_blank");
-    }
-  });
 
   document.addEventListener("click", function (e) {
     var item = e.target.closest('[ais-element="list-item"]');
@@ -601,6 +605,7 @@ async function getMainImageData() {
         .collections("images")
         .documents(imageId)
         .retrieve();
+      console.log(res);
       updateMainImageDataIntoDom(res);
     }
   } catch (error) {
@@ -623,7 +628,9 @@ function updateMainImageDataIntoDom(data) {
 
   mainImage.src = getMainThumbnail(data.image);
   mainAuthorName.textContent = data.author;
-
+  if (data.authorImage) {
+    mainAuthorImage.src = getAuthorImageThumbnail(data.authorImage);
+  }
   if (mainImageDownloadButton) {
     mainImageDownloadButton.setAttribute(
       "ais-download-url",
@@ -644,6 +651,7 @@ function updateMainImageDataIntoDom(data) {
   getImagesMultiSearch(tags, nextPage);
 }
 function initialize() {
+  console.log("init in dev mode");
   template = document.querySelector('[ais-element="list-item"]');
   loader = document.querySelector('[ais-element="loader"]');
   document.querySelector('[ais-element="list-item"]').remove();
@@ -651,7 +659,19 @@ function initialize() {
   renderIsotopeLayoutJS();
   initInfiniteScroll();
   initModal();
+  // ... rest of your initialization code
 }
+
+// document.addEventListener("DOMContentLoaded", () => {
+//   console.log("init");
+//   template = document.querySelector('[ais-element="list-item"]');
+//   loader = document.querySelector('[ais-element="loader"]');
+//   document.querySelector('[ais-element="list-item"]').remove();
+//   getDataByRoute();
+//   renderIsotopeLayoutJS();
+//   initInfiniteScroll();
+//   initModal();
+// });
 
 function getCategoryfromPageHeading() {
   categoryHeading = document.querySelector('[ais-element="category-heading"]');
