@@ -454,12 +454,9 @@ function initModal() {
       ).src;
 
       var itemimage = item.querySelector('[ais-element="item-image"]').src;
-      if (isStaging) {
-        document.querySelector(
-          '[ais-element="modal-download-count"]'
-        ).textContent = `${downloadCount} Downloads`;
-      }
-
+      document.querySelector(
+        '[ais-element="modal-download-count"]'
+      ).textContent = `${downloadCount} Downloads`;
       document.querySelector(
         '[ais-element="modal-author-name"]'
       ).textContent = authorName;
@@ -589,15 +586,11 @@ document.addEventListener("click", function (e) {
         a.href = url;
         a.click();
         window.URL.revokeObjectURL(url);
-        // console.log(downloadButton.getAttribute("ais-download-imageid"));
       });
   }
 });
 
 async function logDownloadCount(id) {
-  if (!isStaging) {
-    return;
-  }
   var data = JSON.stringify({
     id: id,
     fieldName: "downloadCount"
