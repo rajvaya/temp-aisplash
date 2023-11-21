@@ -1,4 +1,8 @@
-console.log("AISplash Dev Mode Activated 👨‍💻 ");
+console.log(
+  isStaging
+    ? `AISplash Dev Mode Activated 👨‍💻`
+    : "AISplash Production Mode Activated 🚀"
+);
 let grid = document.querySelector("#isotope-grid");
 let template;
 let tags;
