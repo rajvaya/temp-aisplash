@@ -1,4 +1,4 @@
-console.log("AISplash Prod Mode Activated 👨‍💻 ");
+console.log("AISplash Dev Mode Activated 👨‍💻 ");
 let grid = document.querySelector("#isotope-grid");
 let template;
 let tags;
@@ -9,11 +9,9 @@ let hasMorePages = true;
 let path = window.location.pathname;
 let randomizedPages = [];
 let totalDocuments = 0;
+let include_fields =
+  "name,author,image,id,featured,randomFieldScore,authorImage,downloadCount";
 let isImagePage = false;
-function getScrollbarWidth() {
-  console.log(window.innerWidth - document.documentElement.clientWidth);
-  return window.innerWidth - document.documentElement.clientWidth;
-}
 let loader;
 
 var iso = new Isotope(grid, {
@@ -48,8 +46,7 @@ function getSearchParameters(searchQuery = "*", path, page) {
       sort_by: "randomFieldScore:asc",
       page: page,
       per_page: itemsPerPage,
-      include_fields:
-        "name,author,image,id,featured,randomFieldScore,authorImage"
+      include_fields: include_fields
     };
   } else {
     return {
@@ -58,8 +55,7 @@ function getSearchParameters(searchQuery = "*", path, page) {
       sort_by: "randomFieldScore:asc",
       page: page,
       per_page: itemsPerPage,
-      include_fields:
-        "name,author,image,id,featured,randomFieldScore,authorImage"
+      include_fields: include_fields
     };
   }
 
@@ -179,7 +175,6 @@ async function getImages(searchQuery, page = 1, path) {
       .collections("images")
       .documents()
       .search(searchParameters);
-    console.log(searchResults.hits);
     processBatch(searchResults.hits.map((hit) => hit.document));
     hasMorePages = page * itemsPerPage < searchResults.found;
     if (hasMorePages) {
@@ -210,7 +205,7 @@ async function getImagesMultiSearch(tags, page) {
     filter_by: tagFilters,
     page: page,
     per_page: itemsPerPage,
-    include_fields: "name,author,image,id,authorImage,"
+    include_fields: include_fields
   };
 
   try {
@@ -218,7 +213,6 @@ async function getImagesMultiSearch(tags, page) {
       .collections("images")
       .documents()
       .search(searchParameters);
-    console.log(result.hits);
     processBatch(result.hits.map((hit) => hit.document));
     hasMorePages = page * itemsPerPage < result.found;
     if (hasMorePages) {
@@ -259,7 +253,6 @@ function getMainThumbnail(url) {
 }
 
 function getAuthorImageThumbnail(url) {
-  console.log(url);
   return `${cleanUrl(url)}?w=96`;
 }
 
@@ -279,6 +272,7 @@ function processBatch(items) {
       const clone = template.cloneNode(true);
       clone.setAttribute("ais-image-id", item.id);
       clone.setAttribute("ais-image-name", item.name);
+      clone.setAttribute("ais-image-downloadCount", item.downloadCount ?? 0);
       const imageElement = clone.querySelector(".layout_link img");
       const authorName = clone.querySelector(
         '[ais-element="listitem-author-name"]'
@@ -294,12 +288,12 @@ function processBatch(items) {
         authorName.textContent = item.author;
       }
       if (authorImage && item.authorImage) {
-        console.log(item, authorImage);
         authorImage.src = getAuthorImageThumbnail(item.authorImage);
       }
       if (downloadButton) {
         downloadButton.setAttribute("ais-download-url", cleanUrl(item.image));
         downloadButton.setAttribute("ais-download-filename", item.name);
+        downloadButton.setAttribute("ais-download-imageid", item.id);
       }
       if (imageElement) {
         imageElement.src = getThumbnail(item.image);
@@ -431,22 +425,18 @@ function initModal() {
     if (item && !e.target.closest('[ais-element="image-download-button"]')) {
       itemName = item.getAttribute("ais-image-name");
       itemId = item.getAttribute("ais-image-id");
-
+      downloadCount = item.getAttribute("ais-image-downloadcount");
       if (
         "ontouchstart" in window ||
         navigator.maxTouchPoints ||
         window.matchMedia("(max-width: 991px)").matches
       ) {
         var item = e.target.closest('[ais-element="list-item"]');
-
         if (
           item &&
           !e.target.closest('[ais-element="image-download-button"]')
         ) {
-          // Extract the necessary attributes
           var itemId = item.getAttribute("ais-image-id");
-
-          // Perform the redirect
           window.location.href = `/image?id=${itemId}`;
           return;
         }
@@ -458,7 +448,13 @@ function initModal() {
       var authorImage = item.querySelector(
         '[ais-element="listitem-author-image"]'
       ).src;
+
       var itemimage = item.querySelector('[ais-element="item-image"]').src;
+
+      document.querySelector(
+        '[ais-element="modal-download-count"]'
+      ).textContent = `${downloadCount} Downloads`;
+
       document.querySelector(
         '[ais-element="modal-author-name"]'
       ).textContent = authorName;
@@ -473,7 +469,10 @@ function initModal() {
         .setAttribute("ais-download-url", cleanUrl(itemimage));
       document
         .querySelector('[ais-element="modal-image-download-button"]')
-        .setAttribute("ais-download-filename", itemId);
+        .setAttribute("ais-download-filename", itemName);
+      document
+        .querySelector('[ais-element="modal-image-download-button"]')
+        .setAttribute("ais-download-imageid", itemId);
       updatePageInfo("aisplash | " + itemName, `/image?id=${itemId}`);
       tl.play();
       keepFocusWithinLightbox();
@@ -581,13 +580,42 @@ document.addEventListener("click", function (e) {
         // Set the download attribute with the desired file name
         a.download =
           downloadButton.getAttribute("ais-download-filename") || "aisplash";
+        logDownloadCount(downloadButton.getAttribute("ais-download-imageid"));
         a.href = url;
         a.click();
         window.URL.revokeObjectURL(url);
-        enableScroll();
+        // console.log(downloadButton.getAttribute("ais-download-imageid"));
       });
   }
 });
+
+async function logDownloadCount(id) {
+  if (!isStaging) {
+    return;
+  }
+  var data = JSON.stringify({
+    id: id,
+    fieldName: "downloadCount"
+  });
+
+  try {
+    const response = await fetch(
+      "https://ai-splash.bueno-preview.art/api/increment",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json" // Set the correct Content-Type for JSON
+        },
+        mode: "cors",
+        body: data
+      }
+    );
+    const result = await response.json();
+    console.log("success log", result);
+  } catch (error) {
+    console.log("error", error);
+  }
+}
 
 async function getMainImageData() {
   isImagePage = true;
@@ -605,7 +633,7 @@ async function getMainImageData() {
         .collections("images")
         .documents(imageId)
         .retrieve();
-      console.log(res);
+      console.log("Main image data", res);
       updateMainImageDataIntoDom(res);
     }
   } catch (error) {
@@ -625,9 +653,18 @@ function updateMainImageDataIntoDom(data) {
   mainImageDownloadButton = document.querySelector(
     '[ais-element="main-image-download-button"]'
   );
+  mainImageDownloadCount = document.querySelector(
+    '[ais-element="main-image-download-count"]'
+  );
 
   mainImage.src = getMainThumbnail(data.image);
   mainAuthorName.textContent = data.author;
+  if (mainImageDownloadCount) {
+    mainImageDownloadCount.textContent = `${
+      data.downloadCount ? data.downloadCount : 0
+    } Downloads`;
+  }
+
   if (data.authorImage) {
     mainAuthorImage.src = getAuthorImageThumbnail(data.authorImage);
   }
@@ -637,6 +674,7 @@ function updateMainImageDataIntoDom(data) {
       cleanUrl(data.image)
     );
     mainImageDownloadButton.setAttribute("ais-download-filename", data.name);
+    mainImageDownloadButton.setAttribute("ais-download-imageid", data.id);
   }
 
   mainImageSection = document.querySelector(
@@ -685,14 +723,6 @@ function getDataByRoute() {
   }
   switch (path) {
     case "/image":
-      mainImageSection = document.querySelector(
-        '[ais-element="main-image-section"]'
-      );
-      similarImageSection = document.querySelector(
-        '[ais-element="similar-image-section"]'
-      );
-      mainImageSection.classList.add("hide");
-      similarImageSection.classList.add("hide");
       getMainImageData();
       break;
     case "/search":
@@ -706,6 +736,17 @@ function getDataByRoute() {
       break;
   }
 }
+
+document.addEventListener("click", function (event) {
+  if (event.target.closest('[ais-element="share-button"]')) {
+    const pageUrl = window.location.href;
+    const tweetContent = encodeURIComponent(
+      "Check out this image from aisplash, by @mushoai " + pageUrl
+    );
+    const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetContent}`;
+    window.open(twitterIntentUrl, "_blank");
+  }
+});
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initialize);
