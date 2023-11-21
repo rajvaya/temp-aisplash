@@ -454,10 +454,11 @@ function initModal() {
       ).src;
 
       var itemimage = item.querySelector('[ais-element="item-image"]').src;
-
-      document.querySelector(
-        '[ais-element="modal-download-count"]'
-      ).textContent = `${downloadCount} Downloads`;
+      if (isStaging) {
+        document.querySelector(
+          '[ais-element="modal-download-count"]'
+        ).textContent = `${downloadCount} Downloads`;
+      }
 
       document.querySelector(
         '[ais-element="modal-author-name"]'
