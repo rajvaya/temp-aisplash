@@ -1,9 +1,10 @@
 console.log(
   isStaging
-    ? `AISplash Dev Mode Activated 👨‍💻`
-    : "AISplash Production Mode Activated 🚀"
+    ? `AISplash Dev Mode Activated 👨‍💻 New CodeSandBox Updated on 27 Nov`
+    : "AISplash Production Mode Activated 🚀 Last Update Nov 27 8:30 IST",
 );
 let grid = document.querySelector("#isotope-grid");
+let modalSimilarImageGrid = document.querySelector("#modal-similar-image-grid");
 let template;
 let tags;
 let nextPage = 1;
@@ -14,14 +15,20 @@ let path = window.location.pathname;
 let randomizedPages = [];
 let totalDocuments = 0;
 let include_fields =
-  "name,author,image,id,featured,randomFieldScore,authorImage,downloadCount";
+  "name,author,image,id,featured,randomFieldScore,tags,authorImage,downloadCount";
 let isImagePage = false;
 let loader;
 
 var iso = new Isotope(grid, {
   itemSelector: ".layout_item",
   layoutMode: "masonry",
-  transitionDuration: 0 // Disable animation
+  transitionDuration: 0, // Disable animation
+});
+
+var iso2 = new Isotope(modalSimilarImageGrid, {
+  itemSelector: ".layout_item",
+  layoutMode: "masonry",
+  transitionDuration: 0, // Disable animation
 });
 
 var typesenseClient = new Typesense.Client({
@@ -29,13 +36,13 @@ var typesenseClient = new Typesense.Client({
     {
       host: "60zorpqbfl8wagd2p-1.a1.typesense.net",
       port: "443",
-      protocol: "https"
-    }
+      protocol: "https",
+    },
   ],
   numRetries: 3,
   apiKey: "3qNdwom727nSxKp8TnFO11BkGHDN89LG",
   retryIntervalSeconds: 3,
-  connectionTimeoutSeconds: 10
+  connectionTimeoutSeconds: 10,
 });
 
 function updatePageInfo(newTitle, newUrl) {
@@ -50,7 +57,7 @@ function getSearchParameters(searchQuery = "*", path, page) {
       sort_by: "randomFieldScore:asc",
       page: page,
       per_page: itemsPerPage,
-      include_fields: include_fields
+      include_fields: include_fields,
     };
   } else {
     return {
@@ -59,7 +66,7 @@ function getSearchParameters(searchQuery = "*", path, page) {
       sort_by: "randomFieldScore:asc",
       page: page,
       per_page: itemsPerPage,
-      include_fields: include_fields
+      include_fields: include_fields,
     };
   }
 
@@ -196,6 +203,35 @@ async function getImages(searchQuery, page = 1, path) {
   }
 }
 
+async function getModalSimilarImages(tags = []) {
+  console.log("Modal Opend");
+  let tagFilters = "";
+  if (tags.length > 0) {
+    tagFilters = tags.map((tag) => `tags:=${tag}`).join(" || ");
+  }
+  let searchParameters = {
+    q: "*", // Use wildcard to match all documents
+    query_by: "tags",
+    filter_by: tagFilters,
+    page: 1,
+    per_page: 20,
+    include_fields: include_fields,
+  };
+
+  try {
+    const result = await typesenseClient
+      .collections("images")
+      .documents()
+      .search(searchParameters);
+    processBatch(
+      result.hits.map((hit) => hit.document),
+      true,
+    );
+  } catch (error) {
+    console.error("Error fetching images:", error);
+  }
+}
+
 async function getImagesMultiSearch(tags, page) {
   if (isLoading || !hasMorePages) {
     return;
@@ -209,7 +245,7 @@ async function getImagesMultiSearch(tags, page) {
     filter_by: tagFilters,
     page: page,
     per_page: itemsPerPage,
-    include_fields: include_fields
+    include_fields: include_fields,
   };
 
   try {
@@ -265,7 +301,7 @@ function cleanUrl(url) {
   return `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
 }
 
-function processBatch(items) {
+function processBatch(items, isSimilarGrid = false) {
   if (!template) {
     console.error("Template element not found");
     return;
@@ -277,15 +313,16 @@ function processBatch(items) {
       clone.setAttribute("ais-image-id", item.id);
       clone.setAttribute("ais-image-name", item.name);
       clone.setAttribute("ais-image-downloadCount", item.downloadCount ?? 0);
+      clone.setAttribute("ais-image-tags", item.tags);
       const imageElement = clone.querySelector(".layout_link img");
       const authorName = clone.querySelector(
-        '[ais-element="listitem-author-name"]'
+        '[ais-element="listitem-author-name"]',
       );
       const authorImage = clone.querySelector(
-        '[ais-element="listitem-author-image"]'
+        '[ais-element="listitem-author-image"]',
       );
       const downloadButton = clone.querySelector(
-        '[ais-element="image-download-button"]'
+        '[ais-element="image-download-button"]',
       );
 
       if (authorName) {
@@ -307,19 +344,48 @@ function processBatch(items) {
         return null;
       }
     })
-    .filter((item) => item !== null); // Filter out any nulls from errors
+    .filter((item) => item !== null);
 
-  if (clonedItems.length > 0) {
-    imagesLoaded(clonedItems, function () {
-      clonedItems.forEach((clone) => {
-        grid.appendChild(clone);
+  if (isSimilarGrid) {
+    if (clonedItems.length > 0) {
+      console.log(clonedItems.length);
+      imagesLoaded(clonedItems, function () {
+        clonedItems.forEach((clone) => {
+          modalSimilarImageGrid.appendChild(clone);
+        });
+        Webflow.require("ix2").init(); // Initialize Webflow interactions
+        iso2.appended(clonedItems);
+        iso2.arrange(); // This line tells Isotope to update the layout
       });
-      Webflow.require("ix2").init(); // Initialize Webflow interactions
-      iso.appended(clonedItems);
-      iso.arrange(); // This line tells Isotope to update the layout
+    }
+    iso2.arrange();
+    imagesLoaded(modalSimilarImageGrid, function () {
+      iso2.on("arrangeComplete", function () {
+        modalSimilarImageGrid.style.display = "block"; // Show the grid after layout is complete
+      });
+      iso2.reloadItems();
+      iso2.arrange();
+      setTimeout(function () {
+        iso2.reloadItems();
+        iso2.arrange();
+      }, 1000);
     });
+  } else {
+    modalSimilarImageGrid.remo;
+    if (clonedItems.length > 0) {
+      imagesLoaded(clonedItems, function () {
+        clonedItems.forEach((clone) => {
+          grid.appendChild(clone);
+        });
+        Webflow.require("ix2").init(); // Initialize Webflow interactions
+        iso.appended(clonedItems);
+        iso.arrange(); // This line tells Isotope to update the layout
+      });
+    }
+    iso.arrange();
   }
-  iso.arrange(); // Assuming 'iso' is the Isotope instance managing 'grid'
+
+  // Assuming 'iso' is the Isotope instance managing 'grid'
 }
 
 function initInfiniteScroll() {
@@ -373,7 +439,7 @@ $("#search-input").on("keyup", function () {
   $grid.isotope({
     filter: function () {
       return $(this).attr("data-title").toLowerCase().includes(searchText);
-    }
+    },
   });
 });
 
@@ -384,11 +450,11 @@ $("#search-input").on("keyup", function () {
 function initModal() {
   let lightbox = document.querySelector("[tr-ajaxmodal-element='lightbox']");
   let lightboxClose = document.querySelector(
-    "[tr-ajaxmodal-element='lightbox-close']"
+    "[tr-ajaxmodal-element='lightbox-close']",
   );
   lightboxClose.setAttribute("aria-label", "Close Modal");
   let lightboxModal = document.querySelector(
-    "[tr-ajaxmodal-element='lightbox-modal']"
+    "[tr-ajaxmodal-element='lightbox-modal']",
   );
 
   let initialPageTitle = document.title;
@@ -402,20 +468,22 @@ function initModal() {
     },
     onComplete: () => {
       lightboxModal.focus();
-    }
+      iso2.arrange();
+      iso2.layout();
+    },
   });
   tl.set("body", { overflow: "hidden" });
 
   tl.set(lightbox, {
     display: "block",
-    onComplete: () => (lightboxModal.scrollTop = 0)
+    onComplete: () => (lightboxModal.scrollTop = 0),
   });
   tl.from(lightbox, { opacity: 0, duration: 0.2 });
   tl.from(lightboxModal, { y: "5em", duration: 0.2 }, "<");
 
   function keepFocusWithinLightbox() {
     let focusableChildren = lightbox.querySelectorAll(
-      "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
+      "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
     );
     let lastFocusableChild = focusableChildren[focusableChildren.length - 1];
     lastFocusableChild.addEventListener("focusout", function () {
@@ -446,26 +514,24 @@ function initModal() {
         }
       }
 
+      let tags = item.getAttribute("ais-image-tags").split(",");
       var authorName = item.querySelector(
-        '[ais-element="listitem-author-name"]'
+        '[ais-element="listitem-author-name"]',
       ).textContent;
       var authorImage = item.querySelector(
-        '[ais-element="listitem-author-image"]'
+        '[ais-element="listitem-author-image"]',
       ).src;
 
       var itemimage = item.querySelector('[ais-element="item-image"]').src;
       document.querySelector(
-        '[ais-element="modal-download-count"]'
+        '[ais-element="modal-download-count"]',
       ).textContent = `${downloadCount} Downloads`;
-      document.querySelector(
-        '[ais-element="modal-author-name"]'
-      ).textContent = authorName;
-      document.querySelector(
-        '[ais-element="modal-author-image"]'
-      ).src = authorImage;
-      document.querySelector(
-        '[ais-element="modal-main-image"]'
-      ).src = getMainThumbnail(itemimage);
+      document.querySelector('[ais-element="modal-author-name"]').textContent =
+        authorName;
+      document.querySelector('[ais-element="modal-author-image"]').src =
+        authorImage;
+      document.querySelector('[ais-element="modal-main-image"]').src =
+        getMainThumbnail(itemimage);
       document
         .querySelector('[ais-element="modal-image-download-button"]')
         .setAttribute("ais-download-url", cleanUrl(itemimage));
@@ -476,9 +542,13 @@ function initModal() {
         .querySelector('[ais-element="modal-image-download-button"]')
         .setAttribute("ais-download-imageid", itemId);
       updatePageInfo("aisplash | " + itemName, `/image?id=${itemId}`);
+      while (modalSimilarImageGrid.firstChild) {
+        modalSimilarImageGrid.removeChild(modalSimilarImageGrid.firstChild);
+      }
       tl.play();
       keepFocusWithinLightbox();
       initializeGSAPAnimations();
+      getModalSimilarImages(tags);
     }
   });
 
@@ -518,14 +588,14 @@ function initializeGSAPAnimations() {
         y: 0,
         onStart: function () {
           modalComponent.style.display = "block";
-        }
+        },
       });
     });
   });
 
   // Get the ".modal_background-overlay" and ".modal_close-button" elements
   const closeModalTriggers = document.querySelectorAll(
-    ".modal_background-overlay, .modal_close-button"
+    ".modal_background-overlay, .modal_close-button",
   );
 
   // Add click event listener to both triggers
@@ -540,7 +610,7 @@ function initializeGSAPAnimations() {
         y: "100%",
         onComplete: function () {
           modalComponent.style.display = "none";
-        }
+        },
       });
     });
   });
@@ -567,7 +637,7 @@ function getSearchQueryParam() {
 
 document.addEventListener("click", function (e) {
   let downloadButton = e.target.closest(
-    '[ais-element="image-download-button"], [ais-element="modal-image-download-button"],[ais-element="main-image-download-button"]'
+    '[ais-element="image-download-button"], [ais-element="modal-image-download-button"],[ais-element="main-image-download-button"]',
   );
   if (downloadButton) {
     e.preventDefault();
@@ -593,20 +663,20 @@ document.addEventListener("click", function (e) {
 async function logDownloadCount(id) {
   var data = JSON.stringify({
     id: id,
-    fieldName: "downloadCount"
+    fieldName: "downloadCount",
   });
 
   try {
     const response = await fetch(
-      "https://ai-splash.bueno-preview.art/api/increment",
+      "https://ai-splash.bueno-preview.art/api/webflow/increment",
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json" // Set the correct Content-Type for JSON
+          "Content-Type": "application/json", // Set the correct Content-Type for JSON
         },
         mode: "cors",
-        body: data
-      }
+        body: data,
+      },
     );
     const result = await response.json();
     console.log("success log", result);
@@ -638,7 +708,7 @@ async function getMainImageData() {
     console.error("something went wrong ", error);
     if (error.httpStatus === 401) {
       console.error(
-        "Unauthorized: Check if your API key is valid and has the right permissions."
+        "Unauthorized: Check if your API key is valid and has the right permissions.",
       );
     }
   }
@@ -649,10 +719,10 @@ function updateMainImageDataIntoDom(data) {
   mainAuthorImage = document.querySelector('[ais-element="main-author-image"]');
   mainAuthorName = document.querySelector('[ais-element="main-author-name"]');
   mainImageDownloadButton = document.querySelector(
-    '[ais-element="main-image-download-button"]'
+    '[ais-element="main-image-download-button"]',
   );
   mainImageDownloadCount = document.querySelector(
-    '[ais-element="main-image-download-count"]'
+    '[ais-element="main-image-download-count"]',
   );
 
   mainImage.src = getMainThumbnail(data.image);
@@ -669,17 +739,17 @@ function updateMainImageDataIntoDom(data) {
   if (mainImageDownloadButton) {
     mainImageDownloadButton.setAttribute(
       "ais-download-url",
-      cleanUrl(data.image)
+      cleanUrl(data.image),
     );
     mainImageDownloadButton.setAttribute("ais-download-filename", data.name);
     mainImageDownloadButton.setAttribute("ais-download-imageid", data.id);
   }
 
   mainImageSection = document.querySelector(
-    '[ais-element="main-image-section"]'
+    '[ais-element="main-image-section"]',
   );
   similarImageSection = document.querySelector(
-    '[ais-element="similar-image-section"]'
+    '[ais-element="similar-image-section"]',
   );
   mainImageSection.classList.remove("hide");
   similarImageSection.classList.remove("hide");
@@ -697,17 +767,6 @@ function initialize() {
   initModal();
   // ... rest of your initialization code
 }
-
-// document.addEventListener("DOMContentLoaded", () => {
-//   console.log("init");
-//   template = document.querySelector('[ais-element="list-item"]');
-//   loader = document.querySelector('[ais-element="loader"]');
-//   document.querySelector('[ais-element="list-item"]').remove();
-//   getDataByRoute();
-//   renderIsotopeLayoutJS();
-//   initInfiniteScroll();
-//   initModal();
-// });
 
 function getCategoryfromPageHeading() {
   categoryHeading = document.querySelector('[ais-element="category-heading"]');
@@ -739,7 +798,7 @@ document.addEventListener("click", function (event) {
   if (event.target.closest('[ais-element="share-button"]')) {
     const pageUrl = window.location.href;
     const tweetContent = encodeURIComponent(
-      "Check out this image from aisplash, by @mushoai " + pageUrl
+      "Check out this image from aisplash, by @mushoai " + pageUrl,
     );
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${tweetContent}`;
     window.open(twitterIntentUrl, "_blank");
